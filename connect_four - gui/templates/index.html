@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Connect 4 AI Benchmark</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #2c3e50; color: white; text-align: center; display: flex; flex-direction: column; align-items: center; min-height: 100vh; margin: 0; }
+        .container { display: flex; gap: 40px; margin-top: 30px; align-items: flex-start; flex-wrap: wrap; justify-content: center; }
+        .board-wrapper { background-color: #34495e; padding: 20px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .board { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; background-color: #2980b9; padding: 12px; border-radius: 10px; border: 4px solid #1a5276; }
+        .cell { width: 55px; height: 55px; background-color: #ecf0f1; border-radius: 50%; cursor: pointer; box-shadow: inset 3px 3px 8px rgba(0,0,0,0.4); transition: transform 0.1s; }
+        .cell:hover { transform: scale(1.05); }
+        .cell.p1 { background-color: #e74c3c; box-shadow: inset -2px -2px 6px rgba(0,0,0,0.5); }
+        .cell.p2 { background-color: #f1c40f; box-shadow: inset -2px -2px 6px rgba(0,0,0,0.5); }
+        .sidebar { width: 340px; text-align: left; display: flex; flex-direction: column; gap: 20px; }
+        .card { background: rgba(0,0,0,0.2); padding: 20px; border-radius: 12px; border: 1px solid #444; }
+        .card h3 { margin-top: 0; color: #ecf0f1; border-bottom: 1px solid #555; padding-bottom: 10px; }
+        select { width: 100%; padding: 10px; margin-bottom: 15px; border-radius: 6px; background: #fff; border: none; }
+        button { width: 100%; padding: 12px; margin-top: 8px; border: none; border-radius: 6px; color: white; font-weight: bold; cursor: pointer; font-size: 14px; transition: 0.2s; box-shadow: 0 4px 6px rgba(0,0,0,0.2); }
+        button:active { transform: translateY(2px); }
+        .btn-green { background-color: #27ae60; } .btn-green:hover { background-color: #2ecc71; }
+        .btn-orange { background-color: #d35400; } .btn-orange:hover { background-color: #e67e22; }
+        .btn-blue { background-color: #2980b9; } .btn-blue:hover { background-color: #3498db; }
+        #status { font-size: 1.2rem; font-weight: bold; padding: 10px; background: rgba(255,255,255,0.1); border-radius: 8px; text-align: center; }
+        .stats-text { font-size: 0.9rem; color: #bdc3c7; line-height: 1.6; font-family: monospace; }
+        
+        /* Modal Styles */
+        .modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.9); align-items: center; justify-content: center; overflow-y: auto; }
+        .modal-content { background-color: #2c3e50; padding: 20px; border-radius: 15px; width: 95%; max-width: 1100px; border: 1px solid #7f8c8d; position: relative; box-shadow: 0 0 50px rgba(0,0,0,0.7); text-align: center; margin-top: 20px; margin-bottom: 20px; }
+        .close { position: absolute; top: 15px; right: 20px; color: #aaa; font-size: 28px; font-weight: bold; cursor: pointer; }
+        .close:hover { color: white; }
+        
+        .plot-container { margin-top: 20px; padding: 5px; background: white; border-radius: 10px; display: flex; flex-direction: column; gap: 20px; }
+        .plot-img { width: 100%; height: auto; border-radius: 5px; display: block; border: 1px solid #ddd; }
+        
+        .loader { border: 5px solid #f3f3f3; border-top: 5px solid #3498db; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 20px auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <h1 style="margin-bottom: 5px;">Connect 4: AI Benchmarking System</h1>
+    <p style="color: #95a5a6; margin-top: 0;">Minimax vs Alpha-Beta Pruning</p>
+    <div class="container">
+        <div class="board-wrapper">
+            <div id="status">Ready to Play</div>
+            <div id="board" class="board"></div>
+        </div>
+        <div class="sidebar">
+            <div class="card">
+                <h3>🎮 Game Control</h3>
+                <label>Difficulty (Search Depth):</label>
+                <select id="difficulty">
+                    <option value="2">Easy (Depth 2)</option>
+                    <option value="4" selected>Medium (Depth 4)</option>
+                    <option value="5">Hard (Depth 5)</option>
+                </select>
+                <button class="btn-green" onclick="startHumanGame()">👤 vs 🤖 Play Human vs AI</button>
+                <button class="btn-orange" onclick="startAiVsAi()">🤖 vs 🤖 Watch AI vs AI</button>
+            </div>
+            <div class="card">
+                <h3>📊 Visual Performance</h3>
+                <p style="font-size: 0.85rem; color: #bdc3c7;">Run full analysis including <b>Game Tree Visualization</b>.</p>
+                <button class="btn-blue" onclick="runComparison()">⚡ Run Full Report & Tree</button>
+            </div>
+            <div class="card">
+                <h3>📈 Last Move Stats</h3>
+                <div id="metrics" class="stats-text">Waiting for AI move...</div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="compModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <h2 style="color: #3498db; margin-top: 0;">Algorithm Performance & Tree Visualization</h2>
+            <p>Generating performance charts and pruning tree...</p>
+            <div id="loader" class="loader"></div>
+            
+            <div id="reportContent" style="display: none;">
+                <div class="plot-container">
+                    <div>
+                        <h3 style="color: #34495e; margin: 5px;">1. Performance Metrics</h3>
+                        <img id="chartsImage" class="plot-img" alt="Performance Charts" />
+                    </div>
+                    <div>
+                        <h3 style="color: #34495e; margin: 5px;">2. Game Tree & Pruning Logic</h3>
+                        <img id="treeImage" class="plot-img" alt="Game Tree" />
+                    </div>
+                </div>
+                <div style="margin-top: 15px; text-align: left; background: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px;">
+                    <p><b>Summary:</b> <span id="summaryText"></span></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let isGameActive = false; let isAiTurn = false; let gameMode = 'human';
+        async function startHumanGame() { gameMode = 'human'; await initGame(); updateStatus("Your Turn (Red)", "white"); }
+        async function startAiVsAi() { gameMode = 'ai_vs_ai'; await initGame(); updateStatus("AI vs AI Started...", "#f1c40f"); setTimeout(triggerAiVsAiTurn, 800); }
+        async function initGame() {
+            const difficulty = document.getElementById('difficulty').value;
+            const res = await fetch('/start', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({difficulty})});
+            const data = await res.json(); renderBoard(data.board); isGameActive = true; isAiTurn = false;
+            document.getElementById('metrics').innerText = "New Game Started - Depth " + difficulty;
+        }
+        async function handleMove(col) {
+            if (!isGameActive || isAiTurn || gameMode === 'ai_vs_ai') return;
+            const res = await fetch('/move', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({col})});
+            if (!res.ok) return; const data = await res.json(); renderBoard(data.board);
+            if (data.game_over) { endGame(data.winner); } else { isAiTurn = true; updateStatus("AI is thinking...", "#f1c40f"); setTimeout(() => triggerAiMove(2), 100); }
+        }
+        async function triggerAiMove(playerNum) {
+            const difficulty = document.getElementById('difficulty').value;
+            const res = await fetch('/ai_move', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({player: playerNum, depth: difficulty})});
+            const data = await res.json(); renderBoard(data.board);
+            if(data.metrics) {
+                const algoName = playerNum === 1 ? "Minimax" : "Alpha-Beta";
+                document.getElementById('metrics').innerHTML = `<b>${algoName} Move:</b><br>Time: ${data.metrics.time.toFixed(4)}s<br>Nodes: ${data.metrics.nodes}<br>Pruned: ${data.metrics.pruning || 0}`;
+            }
+            if (data.game_over) { endGame(data.winner); } else {
+                if (gameMode === 'human') { isAiTurn = false; updateStatus("Your Turn (Red)", "white"); } 
+                else { const nextPlayer = playerNum === 1 ? 2 : 1; const nextColor = nextPlayer === 1 ? "#e74c3c" : "#f1c40f"; updateStatus(`AI Player ${nextPlayer} Thinking...`, nextColor); setTimeout(() => triggerAiMove(nextPlayer), 500); }
+            }
+        }
+        function triggerAiVsAiTurn() { if(!isGameActive) return; triggerAiMove(1); }
+        
+        async function runComparison() {
+            const modal = document.getElementById('compModal'); const loader = document.getElementById('loader'); const content = document.getElementById('reportContent');
+            modal.style.display = "flex"; loader.style.display = "block"; content.style.display = "none";
+            const difficulty = document.getElementById('difficulty').value;
+            try {
+                const res = await fetch('/compare', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({depth: difficulty})});
+                const data = await res.json();
+                
+                // Set both images
+                document.getElementById('chartsImage').src = "data:image/png;base64," + data.charts_image;
+                document.getElementById('treeImage').src = "data:image/png;base64," + data.tree_image;
+                
+                document.getElementById('summaryText').innerText = `Comparison complete. The visualizations above show how Alpha-Beta Pruning significantly reduces the number of nodes explored (red crossed nodes in the tree) compared to standard Minimax.`;
+                loader.style.display = "none"; content.style.display = "block";
+            } catch (error) { console.error(error); alert("Error running comparison."); modal.style.display = "none"; }
+        }
+        function closeModal() { document.getElementById('compModal').style.display = "none"; }
+        window.onclick = function(event) { if (event.target == document.getElementById('compModal')) closeModal(); }
+        function renderBoard(board) {
+            const boardDiv = document.getElementById('board'); boardDiv.innerHTML = '';
+            board.forEach((row, rIndex) => {
+                row.forEach((cell, cIndex) => {
+                    const div = document.createElement('div'); div.className = 'cell ' + (cell === 1 ? 'p1' : cell === 2 ? 'p2' : ''); div.onclick = () => handleMove(cIndex); boardDiv.appendChild(div);
+                });
+            });
+        }
+        function updateStatus(text, color) { const el = document.getElementById('status'); el.innerText = text; el.style.color = color; }
+        function endGame(winner) { isGameActive = false; let msg = "DRAW!"; let color = "white"; if (winner === 1) { msg = "PLAYER 1 WINS!"; color = "#e74c3c"; } if (winner === 2) { msg = "PLAYER 2 WINS!"; color = "#f1c40f"; } updateStatus(msg, color); }
+        renderBoard(Array(6).fill(Array(7).fill(0)));
+    </script>
+</body>
+</html>
